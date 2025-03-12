@@ -1,0 +1,136 @@
+---
+title: "Quarto.HW"
+format: html
+editor: visual
+---
+
+## Step 0: Load Necessary Packages
+
+```{r}
+
+library(tidyverse)
+library(here)     
+library(quarto) 
+library(readr)   
+library(tidyr)   
+library(dplyr)    
+library(stringr) 
+library(knitr)    
+
+```
+
+## Step 1: Read in AUC data
+
+```{r}
+auc <- read_csv(here("data_raw", "auc_bystim.csv"))
+stim_levels <- 1:7
+stim_labels <- c("Fallon","Feist","Pentatonix","Science","Rube","Plane","Dogs")
+auc <- auc %>% mutate(stim = factor(stim, levels = stim_levels, labels = stim_labels))
+```
+
+## Step 2: Read in Participant Data
+
+```{r}
+ppt <- read_csv(here("data_raw","participants_info_full_headers.csv")) %>% 
+  rename(id = `participant ID`,
+         age_group = `Age group`,
+         precision = "Precision")
+
+```
+
+```{r}
+ppt_long <- ppt %>% pivot_longer(cols = starts_with("Seen"), names_to = "stim", values_to = "watched")
+ppt_long <- ppt_long %>% separate(stim, into = c(NA, "stim"))
+
+
+```
+
+```{r}
+ppt_long <- ppt_long %>% mutate(
+  stim = factor(stim, levels = stim_labels, labels = stim_labels),
+  watched = factor(watched, levels = 1:3, labels = c("Yes","No","Not Sure")))
+```
+
+## Step 3: Exploratory Data Analysis
+
+### 3A PRECISION
+
+```{r}
+ds <- left_join(auc, ppt_long, by = c("id", "stim"))
+ds <- ds %>% drop_na(AUC_sal:AUC_dist) #Drop participants for whom we don't have data for the DV
+
+```
+
+```{r}
+ds %>% write_csv(here("data_cleaned","cleaned.csv"))
+```
+
+```{r}
+ds %>% ggplot(aes(x = precision)) + geom_histogram() + geom_vline(xintercept = 2.5)
+```
+
+```{r}
+ds %>% group_by(id, age_group) %>% 
+  summarize(precision = mean(precision, na.RM = T)) %>% 
+  filter(precision > 2.5)
+
+ds %>% filter(precision > 2.5)
+```
+
+```{r}
+ds %>% group_by(age_group) %>% summarize(across(precision, list(M = mean, MIN = min, MAX = max)))
+
+ds %>% ggplot(aes(x = age_group, y = precision)) + geom_boxplot() + geom_hline(yintercept = 2.5)
+ds %>% ggplot(aes(x = age, y = precision)) + geom_point() + geom_hline(yintercept = 2.5)
+
+```
+
+### 3B AGE
+
+```{r}
+ds <- ds %>% mutate(age_years = age/365.25)
+```
+
+```{r}
+ds %>% group_by(id, age_group) %>% 
+  summarize(age_years = mean(age_years)) %>% 
+  ggplot(aes(y = age_group, x = age_years)) + geom_boxplot()
+```
+
+```{r}
+ds %>% group_by(id, age_group) %>% 
+  summarize(age_years = mean(age_years)) %>% 
+  ggplot(aes(y = age_years)) + 
+  geom_boxplot() + 
+  facet_wrap("age_group", scales = "free")
+
+```
+
+```{r}
+ds %>% group_by(age_group) %>% summarize(min_age = min(age_years), max_age = max(age_years))
+```
+
+```{r}
+
+```
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
